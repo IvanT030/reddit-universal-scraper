@@ -9,16 +9,16 @@ import sys
 from datetime import datetime
 import time
 import os
-import json
 import signal
 
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from analytics.sentiment import (
-    analyze_posts_sentiment, extract_keywords, 
-    calculate_engagement_metrics, find_best_posting_times
+    extract_keywords,
+    find_best_posting_times
 )
+from plugins.stance_analyzer import StanceAnalyzerPlugin
 from search.query import search_all_data, advanced_search, get_top_posts
 
 # Page config
@@ -165,7 +165,7 @@ def main():
     # Data tabs only if data loaded
     tab_list = []
     if data_loaded:
-        tab_list.extend(["📊 Overview", "📈 Analytics", "🔍 Search", "💬 Comments"])
+        tab_list.extend(["📊 Overview", "⚖️ Stance", "📈 Analytics", "🔍 Search", "💬 Comments"])
     
     # Always present tabs
     tab_list.extend(["⚙️ Scraper", "📋 Job History", "🔌 Integrations"])
@@ -225,32 +225,70 @@ def main():
                 top_posts = posts_df.nlargest(10, 'score')[['title', 'score', 'num_comments', 'post_type', 'created_utc']]
                 st.dataframe(top_posts)
 
+        import json
+        with tab_map["⚖️ Stance"]:
+            st.header(f"⚖️ Stance Analysis: {selected_sub}")
+            stance_file = sub_path / "stance_results" / "stance_analysis.json"
+
+            if not stance_file.exists():
+                st.info("No stance analysis results found for this subreddit yet.")
+                if st.button("Run Stance Analysis"):
+                    with st.spinner("Analyzing stance relationships..."):
+                        plugin = StanceAnalyzerPlugin(data_dir=str(sub_path))
+                        plugin.run()
+                    st.experimental_rerun()
+            else:
+                with open(stance_file, 'r', encoding='utf-8') as f:
+                    stance_results = json.load(f)
+
+                total_posts = len(stance_results)
+                total_comments = sum(
+                    sum(post_data['stance_counts'].values())
+                    for post_data in stance_results.values()
+                )
+                stance_totals = {
+                    'agree': sum(post_data['stance_counts']['agree'] for post_data in stance_results.values()),
+                    'disagree': sum(post_data['stance_counts']['disagree'] for post_data in stance_results.values()),
+                    'discussion': sum(post_data['stance_counts']['discussion'] for post_data in stance_results.values()),
+                    'not related': sum(post_data['stance_counts']['not related'] for post_data in stance_results.values())
+                }
+
+                col1, col2, col3, col4, col5, col6 = st.columns(6)
+                col1.metric("Posts Analyzed", total_posts)
+                col2.metric("Total Comments", total_comments)
+                col3.metric("Agree", stance_totals['agree'])
+                col4.metric("Disagree", stance_totals['disagree'])
+                col5.metric("Discussion", stance_totals['discussion'])
+                col6.metric("Not Related", stance_totals['not related'])
+
+                st.subheader("Stance Distribution")
+                stance_df = pd.DataFrame({
+                    'Stance': list(stance_totals.keys()),
+                    'Count': list(stance_totals.values())
+                })
+                st.bar_chart(stance_df.set_index('Stance'))
+
+                st.divider()
+                st.subheader("Sample Posts")
+
+                sample_rows = []
+                for post_id, post_data in list(stance_results.items())[:10]:
+                    sample_rows.append({
+                        'Post ID': post_id,
+                        'Title': post_data['post_title'][:80],
+                        'Agree': post_data['stance_counts']['agree'],
+                        'Disagree': post_data['stance_counts']['disagree'],
+                        'Discussion': post_data['stance_counts']['discussion'],
+                        'Not Related': post_data['stance_counts']['not related']
+                    })
+                st.dataframe(pd.DataFrame(sample_rows), use_container_width=True)
+
+                st.divider()
+                st.write("To explore comments by stance in detail, open the dedicated Stance Analysis page from the Streamlit page navigation.")
+
         with tab_map["📈 Analytics"]:
             st.header("📈 Analytics")
             
-            # Sentiment Analysis
-            st.subheader("😀 Sentiment Analysis")
-            
-            if st.button("Run Sentiment Analysis"):
-                with st.spinner("Analyzing sentiment..."):
-                    posts_list = posts_df.to_dict('records')
-                    analyzed_posts, sentiment_counts = analyze_posts_sentiment(posts_list)
-                    
-                    col1, col2, col3 = st.columns(3)
-                    col1.metric("Positive", sentiment_counts['positive'], delta=None)
-                    col2.metric("Neutral", sentiment_counts['neutral'], delta=None)
-                    col3.metric("Negative", sentiment_counts['negative'], delta=None)
-                    
-                    # Pie chart
-                    sentiment_df = pd.DataFrame({
-                        'Sentiment': ['Positive', 'Neutral', 'Negative'],
-                        'Count': [sentiment_counts['positive'], sentiment_counts['neutral'], sentiment_counts['negative']]
-                    })
-                    st.bar_chart(sentiment_df.set_index('Sentiment'))
-            
-            st.divider()
-            
-            # Keywords
             st.subheader("☁️ Top Keywords")
             texts = posts_df['title'].tolist()
             if 'selftext' in posts_df:
@@ -261,6 +299,8 @@ def main():
             if keywords:
                 kw_df = pd.DataFrame(keywords, columns=['Word', 'Count'])
                 st.bar_chart(kw_df.set_index('Word').head(20))
+            else:
+                st.info("No keyword data available yet.")
             
             st.divider()
             
@@ -374,6 +414,7 @@ def main():
         # Persistence logic
         import json
         import signal
+        import os
         
         JOB_FILE = Path("active_job.json")
         LOG_DIR = Path("logs")

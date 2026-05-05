@@ -290,7 +290,7 @@ def download_post_media(post_data, dirs, post_id):
     return downloaded
 
 # --- COMMENT SCRAPING ---
-def scrape_comments(permalink, max_depth=3):
+def scrape_comments(permalink, max_depth=5):
     """Scrapes comments from a post."""
     comments = []
     
@@ -676,9 +676,8 @@ Commands:
     python main.py --schedule delhi --every 60
     
   ANALYTICS:
-    python main.py --analyze delhi --sentiment
     python main.py --analyze delhi --keywords
-    
+
   MAINTENANCE:
     python main.py --job-history                # View job history
     python main.py --backup                     # Backup database
@@ -710,7 +709,6 @@ Commands:
     
     # Analytics
     parser.add_argument("--analyze", type=str, help="Run analytics on subreddit")
-    parser.add_argument("--sentiment", action="store_true", help="Run sentiment analysis")
     parser.add_argument("--keywords", action="store_true", help="Extract keywords")
     
     # Schedule
@@ -823,14 +821,6 @@ Commands:
         import pandas as pd
         df = pd.read_csv(posts_file)
         posts = df.to_dict('records')
-        
-        if args.sentiment:
-            from analytics.sentiment import analyze_posts_sentiment
-            analyzed, counts = analyze_posts_sentiment(posts)
-            print(f"\n😀 Sentiment Analysis:")
-            print(f"   Positive: {counts['positive']}")
-            print(f"   Neutral:  {counts['neutral']}")
-            print(f"   Negative: {counts['negative']}")
         
         if args.keywords:
             from analytics.sentiment import extract_keywords

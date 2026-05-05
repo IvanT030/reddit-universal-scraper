@@ -13,11 +13,15 @@ from analytics.sentiment import analyze_sentiment
 
 
 class SentimentTagger(Plugin):
-    """Add sentiment analysis to scraped content."""
+    """Add sentiment analysis to scraped content.
+
+    This plugin is disabled by default because sentiment analysis is no longer
+    exposed in the active dashboard experience.
+    """
     
     name = "sentiment_tagger"
     description = "Adds sentiment scores and labels to posts"
-    enabled = True
+    enabled = False
     
     def process_posts(self, posts):
         """Add sentiment to posts."""

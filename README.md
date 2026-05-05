@@ -8,19 +8,20 @@ A **full-featured** Reddit scraper with analytics dashboard, REST API, scheduled
 
 ## ✨ Features
 
-| Feature | Description |
-|---------|-------------|
-| 📊 **Full Scraping** | Posts, comments, images, videos, galleries |
-| 📈 **Web Dashboard** | Beautiful Streamlit UI with 7 tabs |
-| 🚀 **REST API** | Connect Metabase, Grafana, DuckDB |
-| 🔌 **Plugin System** | Extensible post-processing (sentiment, dedupe, keywords) |
-| 📋 **Job Tracking** | Full history with status, duration, errors |
-| 🧪 **Dry Run Mode** | Test scrape rules without saving data |
-| 📦 **Parquet Export** | Analytics-ready format for DuckDB/warehouses |
-| 😀 **Sentiment Analysis** | Analyze post/comment sentiment |
-| 📅 **Scheduled Scraping** | Cron-style job scheduling |
-| 📧 **Notifications** | Discord & Telegram alerts |
-| 🗄️ **SQLite Database** | Structured storage with auto-backup |
+| Feature                   | Description                                              |
+| ------------------------- | -------------------------------------------------------- |
+| 📊 **Full Scraping**      | Posts, comments, images, videos, galleries               |
+| 📈 **Web Dashboard**      | Beautiful Streamlit UI with 7 tabs                       |
+| 🚀 **REST API**           | Connect Metabase, Grafana, DuckDB                        |
+| 🔌 **Plugin System**      | Extensible post-processing (sentiment, dedupe, keywords) |
+| 📋 **Job Tracking**       | Full history with status, duration, errors               |
+| 🧪 **Dry Run Mode**       | Test scrape rules without saving data                    |
+| 📦 **Parquet Export**     | Analytics-ready format for DuckDB/warehouses             |
+| 😀 **Sentiment Analysis** | Analyze post/comment sentiment                           |
+| ⚖️ **Stance Analysis**    | NLI-based stance classification (NEW!)                   |
+| 📅 **Scheduled Scraping** | Cron-style job scheduling                                |
+| 📧 **Notifications**      | Discord & Telegram alerts                                |
+| 🗄️ **SQLite Database**    | Structured storage with auto-backup                      |
 
 ---
 
@@ -87,6 +88,7 @@ python main.py python --mode full --limit 50 --dry-run
 ```
 
 Output:
+
 ```
 🧪 DRY RUN MODE - No data will be saved
 🧪 DRY RUN COMPLETE!
@@ -123,6 +125,7 @@ python main.py --dashboard
 ```
 
 **Dashboard Tabs:**
+
 - 📊 Overview - Stats & charts
 - 📈 Analytics - Sentiment & keywords
 - 🔍 Search - Query scraped data
@@ -186,7 +189,67 @@ python main.py --analyze delhi --sentiment
 
 # Extract keywords
 python main.py --analyze delhi --keywords
+
+# Run stance analysis
+python stance_quickstart.py
+
+# View stance analysis in dashboard
+streamlit run dashboard/app.py  # Navigate to Stance Analysis tab
 ```
+
+### ⚖️ Stance Analysis (NEW!)
+
+Analyze the relationship between discussion posts and their comments using RoBERTa-based Natural Language Inference.
+
+**Quick Start:**
+
+```bash
+# Option 1: Run directly
+python -m plugins.stance_analyzer
+
+# Option 2: Via Interactive Menu
+python stance_quickstart.py
+# Select option 1 to run analysis
+
+# Option 3: View Examples
+python examples_stance_analysis.py
+```
+
+**Dashboard View:**
+
+1. Open Streamlit: `streamlit run dashboard/app.py`
+2. Navigate to "⚖️ Stance Analysis" page
+3. Click "Run Analysis" to analyze your data
+4. Browse results by post and view comments grouped by stance
+
+**API Access:**
+
+```bash
+# Start API
+python api/server.py
+
+# Get overall statistics
+curl http://localhost:8000/stance/stats
+
+# Get all posts with stance summaries
+curl http://localhost:8000/stance/posts
+
+# Get specific post analysis
+curl http://localhost:8000/stance/posts/1srepds
+
+# Get comments by stance for a post
+curl http://localhost:8000/stance/posts/1srepds/entailment
+curl http://localhost:8000/stance/posts/1srepds/contradiction
+curl http://localhost:8000/stance/posts/1srepds/neutral
+```
+
+**Stance Categories:**
+
+- ✅ **Entailment** - Comments that support/agree with the post
+- ❌ **Contradiction** - Comments that disagree with the post
+- ➖ **Neutral** - Comments that neither agree nor disagree
+
+See [Stance Analysis Documentation](docs/STANCE_ANALYSIS.md) for details.
 
 ---
 
@@ -235,6 +298,7 @@ sudo ufw allow 8501
 ```
 
 Access:
+
 - `http://your-server-ip:8501` → Dashboard
 - `http://your-server-ip:8000/docs` → API
 
@@ -293,25 +357,27 @@ reddit-scraper/
 ## 📊 Data Output
 
 ### posts.csv
-| Column | Description |
-|--------|-------------|
-| id | Reddit post ID |
-| title | Post title |
-| author | Username |
-| score | Net upvotes |
-| num_comments | Comment count |
-| post_type | text/image/video/gallery |
-| selftext | Post body |
+
+| Column          | Description                |
+| --------------- | -------------------------- |
+| id              | Reddit post ID             |
+| title           | Post title                 |
+| author          | Username                   |
+| score           | Net upvotes                |
+| num_comments    | Comment count              |
+| post_type       | text/image/video/gallery   |
+| selftext        | Post body                  |
 | sentiment_score | -1.0 to 1.0 (with plugins) |
 
 ### comments.csv
-| Column | Description |
-|--------|-------------|
-| comment_id | Comment ID |
-| post_permalink | Parent post |
-| author | Username |
-| body | Comment text |
-| score | Upvotes |
+
+| Column         | Description  |
+| -------------- | ------------ |
+| comment_id     | Comment ID   |
+| post_permalink | Parent post  |
+| author         | Username     |
+| body           | Comment text |
+| score          | Upvotes      |
 
 ---
 

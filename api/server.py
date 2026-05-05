@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, List
 import sys
 from pathlib import Path
+import json
 
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -161,6 +162,114 @@ def list_jobs(
 def job_stats():
     """Get aggregated job statistics."""
     return get_job_stats()
+
+
+# --- STANCE ANALYSIS ---
+
+def load_stance_results():
+    """加載立場分析結果"""
+    results_file = Path("data/r_Valorant/stance_results/stance_analysis.json")
+    if results_file.exists():
+        with open(results_file, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return None
+
+
+@app.get("/stance/stats", tags=["Stance Analysis"])
+def stance_stats():
+    """Get overall stance analysis statistics."""
+    results = load_stance_results()
+    
+    if not results:
+        raise HTTPException(status_code=404, detail="No stance analysis data available")
+    
+    total_posts = len(results)
+    total_comments = 0
+    stance_totals = {'contradiction': 0, 'entailment': 0, 'neutral': 0}
+    
+    for post_data in results.values():
+        for stance in stance_totals:
+            count = post_data['stance_counts'][stance]
+            stance_totals[stance] += count
+            total_comments += count
+    
+    return {
+        "total_posts": total_posts,
+        "total_comments": total_comments,
+        "stance_distribution": stance_totals,
+        "percentages": {
+            k: (v / total_comments * 100) if total_comments > 0 else 0 
+            for k, v in stance_totals.items()
+        }
+    }
+
+
+@app.get("/stance/posts", tags=["Stance Analysis"])
+def stance_posts_list():
+    """Get list of all posts with stance summaries."""
+    results = load_stance_results()
+    
+    if not results:
+        raise HTTPException(status_code=404, detail="No stance analysis data available")
+    
+    posts = []
+    for post_id, post_data in results.items():
+        posts.append({
+            "post_id": post_id,
+            "title": post_data['post_title'],
+            "stance_counts": post_data['stance_counts'],
+            "total_comments": sum(post_data['stance_counts'].values()),
+            "analyzed_at": post_data['analyzed_at']
+        })
+    
+    return sorted(posts, key=lambda x: x['total_comments'], reverse=True)
+
+
+@app.get("/stance/posts/{post_id}", tags=["Stance Analysis"])
+def stance_post_detail(post_id: str):
+    """Get detailed stance analysis for a specific post."""
+    results = load_stance_results()
+    
+    if not results:
+        raise HTTPException(status_code=404, detail="No stance analysis data available")
+    
+    if post_id not in results:
+        raise HTTPException(status_code=404, detail=f"Post {post_id} not found in analysis")
+    
+    return {
+        "post_id": post_id,
+        "data": results[post_id]
+    }
+
+
+@app.get("/stance/posts/{post_id}/{stance}", tags=["Stance Analysis"])
+def stance_post_by_stance(post_id: str, stance: str):
+    """Get comments for a specific post filtered by stance."""
+    valid_stances = ['contradiction', 'entailment', 'neutral']
+    
+    if stance not in valid_stances:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid stance. Must be one of: {', '.join(valid_stances)}"
+        )
+    
+    results = load_stance_results()
+    
+    if not results:
+        raise HTTPException(status_code=404, detail="No stance analysis data available")
+    
+    if post_id not in results:
+        raise HTTPException(status_code=404, detail=f"Post {post_id} not found in analysis")
+    
+    post_data = results[post_id]
+    
+    return {
+        "post_id": post_id,
+        "post_title": post_data['post_title'],
+        "stance": stance,
+        "count": post_data['stance_counts'][stance],
+        "comments": post_data['comments_by_stance'][stance]
+    }
 
 
 # --- RAW SQL (for advanced users) ---

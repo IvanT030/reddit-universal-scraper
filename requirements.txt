@@ -1,6 +1,7 @@
 # Core
 pandas
 requests
+numpy
 
 # Async
 aiohttp
@@ -16,3 +17,9 @@ pyarrow
 # REST API
 fastapi
 uvicorn
+
+# Analytics
+sentence-transformers
+transformers
+accelerate
+torch
